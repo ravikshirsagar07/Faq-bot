@@ -19,7 +19,7 @@ st.write("Ask a question and get the most relevant FAQ answer.")
 # Load Model
 @st.cache_resource
 def load_model():
-    return SentenceTransformer('all-MiniLM-L6-v2')
+    return SentenceTransformer('paraphrase-MiniLM-L3-v2')
 
 model = load_model()
 
