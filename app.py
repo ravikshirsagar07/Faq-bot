@@ -3,28 +3,18 @@ from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
-# Page Configuration
-st.set_page_config(
-    page_title="Semantic FAQ Bot",
-    page_icon="🤖",
-    layout="centered",
-    initial_sidebar_state="collapsed"
-)
+st.set_page_config(page_title="FAQ Assistant", page_icon="🤖")
+st.title("🤖 Intelligent FAQ Bot")
 
-# App Header
-st.title("🤖 Intelligent FAQ Assistant")
-st.markdown("---")
-
-# 1. Optimizing Resource Loading (Cached globally)
+# Cache the model resource globally so it is only loaded once into RAM
 @st.cache_resource
-def initialize_transformer():
-    """Loads and caches the heavy embedding model in memory."""
+def load_embedding_model():
     return SentenceTransformer('all-MiniLM-L6-v2')
 
-with st.spinner("Initializing neural network..."):
-    model = initialize_transformer()
+with st.spinner("Loading Transformer model..."):
+    model = load_embedding_model()
 
-# 2. Knowledge Base Data
+# FAQ Knowledge Base Data
 faq_questions = [
     "What is AI?",
     "What is Machine Learning?",
@@ -39,53 +29,25 @@ faq_answers = [
     "Python is widely used in AI, ML, and web development."
 ]
 
-# 3. Optimizing Data Vectors (Cached to prevent recalculation)
+# Cache computed data vectors so they don't regenerate every rerun
 @st.cache_data
-def compute_faq_embeddings():
-    """Computes coordinate vectors for the stable FAQ bank."""
+def get_cached_embeddings():
     return model.encode(faq_questions)
 
-faq_embeddings = compute_faq_embeddings()
+faq_embeddings = get_cached_embeddings()
 
-# Sidebar Helper Info
-with st.sidebar:
-    st.header("About the App")
-    st.write("This application utilizes a lightweight Transformer model to calculate **Cosine Similarity** between your question and the database.")
-    st.caption("Model: `all-MiniLM-L6-v2`")
+# Input box interface
+user_query = st.text_input("Ask a question:", placeholder="e.g., What is deep learning?")
 
-# 4. User Interface Container
-with st.container():
-    user_query = st.text_input(
-        "Ask a question about our services:", 
-        placeholder="e.g., Can you tell me what Python programming does?"
-    )
-
-# 5. Semantic Search Execution
 if user_query.strip():
-    # Encode user intent into vector space
-    query_embedding = model.encode([user_query])
+    query_vector = model.encode([user_query])
+    scores = cosine_similarity(query_vector, faq_embeddings)
+    best_match_idx = np.argmax(scores)
     
-    # Calculate geometric cosine scores
-    similarity_scores = cosine_similarity(query_embedding, faq_embeddings)
-    
-    # Identify index of top choice
-    best_match_idx = np.argmax(similarity_scores)
-    confidence_score = similarity_scores[best_match_idx]
-    
-    st.write("### Search Results")
-    
-    # Set a robust baseline threshold to block unrelated context noise
-    if confidence_score >= 0.38:
-        # Layout metrics alongside answers
-        col1, col2 = st.columns([4, 1])
-        
-        with col1:
-            st.markdown(f"**Matched Question:** *{faq_questions[best_match_idx]}*")
-            st.success(faq_answers[best_match_idx])
-            
-        with col2:
-            # Displays confidence score in a visual widget
-            st.metric(label="Match Score", value=f"{confidence_score * 100:.1f}%")
-            
+    st.markdown("---")
+    if scores[best_match_idx] > 0.38:
+        st.info(f"**Matched FAQ:** {faq_questions[best_match_idx]}")
+        st.success(f"**Answer:** {faq_answers[best_match_idx]}")
+        st.caption(f"Match confidence score: {scores[best_match_idx]:.4f}")
     else:
-        st.warning("⚠️ No matching FAQ found. We could not find a clear match with a high enough confidence score. Please try rephrasing your query.")
+        st.warning("Could not find a highly matching answer. Please try rephrasing your question!")
