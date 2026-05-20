@@ -1,29 +1,21 @@
-# app.py
-
 import streamlit as st
-from sentence_transformers import SentenceTransformer
-from sklearn.metrics.pairwise import cosine_similarity
-import numpy as np
+from difflib import SequenceMatcher
 
-# Page Configuration
+# =====================================================
+# PAGE CONFIG
+# =====================================================
 st.set_page_config(
     page_title="FAQ Chatbot",
     page_icon="🤖",
     layout="centered"
 )
 
-# Title
 st.title("🤖 AI FAQ Chatbot")
-st.write("Ask a question and get the most relevant FAQ answer.")
+st.write("Ask a question and get the closest FAQ answer.")
 
-# Load Model
-@st.cache_resource
-def load_model():
-    return SentenceTransformer('paraphrase-MiniLM-L3-v2')
-
-model = load_model()
-
-# FAQs
+# =====================================================
+# FAQ DATA
+# =====================================================
 faq_questions = [
     "What is AI?",
     "What is Machine Learning?",
@@ -38,32 +30,36 @@ faq_answers = [
     "Python is widely used in AI, ML, and web development."
 ]
 
-# Precompute FAQ Embeddings
-faq_embeddings = model.encode(faq_questions)
+# =====================================================
+# MATCH FUNCTION
+# =====================================================
+def similarity(a, b):
+    return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
-# User Input
+# =====================================================
+# USER INPUT
+# =====================================================
 query = st.text_input("Enter your question:")
 
-# Button
+# =====================================================
+# BUTTON
+# =====================================================
 if st.button("Get Answer"):
 
     if query.strip() == "":
         st.warning("Please enter a question.")
+
     else:
-        # Query Embedding
-        query_embedding = model.encode([query])
 
-        # Similarity Calculation
-        scores = cosine_similarity(
-            query_embedding,
-            faq_embeddings
-        )
+        scores = []
 
-        # Best Match
-        best_index = np.argmax(scores)
-        best_score = scores[0][best_index]
+        for question in faq_questions:
+            score = similarity(query, question)
+            scores.append(score)
 
-        # Display Results
+        best_index = scores.index(max(scores))
+        best_score = scores[best_index]
+
         st.subheader("Most Relevant FAQ")
         st.success(faq_questions[best_index])
 
@@ -73,13 +69,15 @@ if st.button("Get Answer"):
         st.subheader("Similarity Score")
         st.write(f"{best_score:.4f}")
 
-# Sidebar
+# =====================================================
+# SIDEBAR
+# =====================================================
 st.sidebar.title("About")
-st.sidebar.write(
-    """
-    This Streamlit app uses:
-    - Sentence Transformers
-    - Cosine Similarity
-    - Semantic Search
-    """
-)
+
+st.sidebar.write("""
+This chatbot uses:
+
+- Streamlit
+- String Similarity Matching
+- Lightweight FAQ Search
+""")
