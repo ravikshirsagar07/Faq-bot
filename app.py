@@ -1,101 +1,85 @@
+# app.py
+
 import streamlit as st
-from sklearn.feature_extraction.text import TfidfVectorizer
+from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 
-# =====================================================
-# PAGE CONFIG
-# =====================================================
+# Page Configuration
 st.set_page_config(
-    page_title="FAQ Bot",
-    page_icon="🤖"
+    page_title="FAQ Chatbot",
+    page_icon="🤖",
+    layout="centered"
 )
 
-st.title("🤖 Intelligent FAQ Bot")
+# Title
+st.title("🤖 AI FAQ Chatbot")
+st.write("Ask a question and get the most relevant FAQ answer.")
 
-# =====================================================
-# FAQ DATABASE
-# =====================================================
+# Load Model
+@st.cache_resource
+def load_model():
+    return SentenceTransformer('all-MiniLM-L6-v2')
+
+model = load_model()
+
+# FAQs
 faq_questions = [
     "What is AI?",
     "What is Machine Learning?",
     "How does Deep Learning work?",
-    "What is Python used for?",
-    "What are embeddings?",
-    "What is NLP?"
+    "What is Python used for?"
 ]
 
 faq_answers = [
     "AI enables machines to mimic human intelligence.",
     "Machine Learning allows systems to learn from data.",
     "Deep Learning uses neural networks with many layers.",
-    "Python is widely used in AI, ML, and web development.",
-    "Embeddings are vector representations of text.",
-    "NLP stands for Natural Language Processing."
+    "Python is widely used in AI, ML, and web development."
 ]
 
-# =====================================================
-# TF-IDF MODEL
-# =====================================================
-vectorizer = TfidfVectorizer()
+# Precompute FAQ Embeddings
+faq_embeddings = model.encode(faq_questions)
 
-faq_vectors = vectorizer.fit_transform(faq_questions)
+# User Input
+query = st.text_input("Enter your question:")
 
-# =====================================================
-# USER INPUT
-# =====================================================
-user_query = st.text_input(
-    "Ask your question:",
-    placeholder="Example: Explain deep learning"
-)
+# Button
+if st.button("Get Answer"):
 
-# =====================================================
-# SEARCH
-# =====================================================
-if user_query:
-
-    user_vector = vectorizer.transform([user_query])
-
-    similarity = cosine_similarity(
-        user_vector,
-        faq_vectors
-    )
-
-    best_match = np.argmax(similarity)
-
-    score = similarity[0][best_match]
-
-    st.divider()
-
-    if score > 0.2:
-
-        st.success(faq_answers[best_match])
-
-        with st.expander("Match Details"):
-            st.write("Matched Question:")
-            st.info(faq_questions[best_match])
-
-            st.write("Confidence Score:")
-            st.write(round(float(score), 4))
-
+    if query.strip() == "":
+        st.warning("Please enter a question.")
     else:
-        st.warning(
-            "No matching FAQ found. Try rephrasing."
+        # Query Embedding
+        query_embedding = model.encode([query])
+
+        # Similarity Calculation
+        scores = cosine_similarity(
+            query_embedding,
+            faq_embeddings
         )
 
-# =====================================================
-# SIDEBAR
-# =====================================================
-with st.sidebar:
+        # Best Match
+        best_index = np.argmax(scores)
+        best_score = scores[0][best_index]
 
-    st.header("📚 FAQs")
+        # Display Results
+        st.subheader("Most Relevant FAQ")
+        st.success(faq_questions[best_index])
 
-    for q in faq_questions:
-        st.write(f"• {q}")
+        st.subheader("Answer")
+        st.info(faq_answers[best_index])
 
-    st.divider()
+        st.subheader("Similarity Score")
+        st.write(f"{best_score:.4f}")
 
-    st.markdown("### ⚡ Tech Used")
-    st.write("- Streamlit")
-    st.write("- TF-IDF")
-    st.write("- Cosine Similarity")
+# Sidebar
+st.sidebar.title("About")
+st.sidebar.write(
+    """
+    This Streamlit app uses:
+    - Sentence Transformers
+    - Cosine Similarity
+    - Semantic Search
+    """
+)
